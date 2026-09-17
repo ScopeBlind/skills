@@ -1,0 +1,7 @@
+node_modules/
+.protect-mcp-*.jsonl
+.governed-monid-ledger.json
+protect-mcp.json
+keys/
+*-key.json
+*key-backup*.json

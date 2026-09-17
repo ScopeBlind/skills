@@ -1,0 +1,140 @@
+{
+  "type": "scopeblind.proof_request.v1",
+  "version": 1,
+  "request_id": "pr:cef7bd826d6f3299",
+  "recipient": {
+    "name": "Sample author",
+    "organization": "ScopeBlind samples",
+    "key_id": "recipient:167069a9d337064b",
+    "verification_key": "647deae15c9b86d42476d44eb37edafa20e71ef28edc826a18c6b40ec4fe61fa"
+  },
+  "operator": null,
+  "decision": {
+    "kind": "reliance",
+    "owner": "The party who relies on this work",
+    "statement": "Rely on this work as done under this standard",
+    "purpose": "Work for a client, checked against the standard it was done under"
+  },
+  "boundary": {
+    "workflow": "retrieving data through Monid for a research task",
+    "action_class": "tool_call",
+    "resources": [],
+    "destinations": [],
+    "period": {
+      "starts_at": "2026-09-17T11:44:41.326Z",
+      "ends_at": "2027-09-17T11:44:41.326Z"
+    }
+  },
+  "requirements": {
+    "environment_class_min": "production",
+    "approver_assurance_min": "platform_credential_user_verified",
+    "human_approval": {
+      "required_above": {
+        "amount": 0.25,
+        "currency": "USD"
+      },
+      "distinct_approvers": 1
+    },
+    "authority_max_age_seconds": 900,
+    "coverage": "governed_route",
+    "effect_evidence": "authoritative_readback",
+    "anchoring": "self_attested",
+    "partial_settlement_permitted": false,
+    "action_limits": {
+      "amount_max": {
+        "amount": 1,
+        "currency": "USD"
+      },
+      "per_instruction": true
+    },
+    "run": {
+      "allowed_tools": [
+        "monid_discover",
+        "monid_inspect",
+        "monid_run"
+      ],
+      "egress_allowlist": [],
+      "attempts_per_task": 1,
+      "dataset": {
+        "name": "the work as delivered (no task set pinned)",
+        "digest": "sha256:2cd2199d6d4e8fc5baee7ac9417e75f97838f2bb99c06dba3537f366c728bbb6"
+      },
+      "harness": {
+        "name": "protect-mcp gate (no harness pinned)",
+        "digest": "sha256:079f6df74b4f98c40dddc79df83b08ba5fe7b68c436a9ab204529c555b708e75"
+      },
+      "time_limit_seconds": 3600,
+      "model_route": "declared by the operator",
+      "model_attestation": null,
+      "temporal": []
+    },
+    "credentials_held_by_gate": []
+  },
+  "trust": {
+    "accepted_gate_keys": [],
+    "accepted_approver_keys": [],
+    "accepted_readback_sources": [],
+    "accepted_anchor_witnesses": []
+  },
+  "disclosure": {
+    "required_fields": [
+      "tool calls",
+      "refusals",
+      "chain head"
+    ],
+    "inspection": "on_request"
+  },
+  "limitations_permitted": [
+    "The gate sees the calls on the route it brokers; a route the operator did not declare is not covered"
+  ],
+  "rejection_criteria": [],
+  "hold_criteria": [],
+  "deadline": {
+    "respond_by": "2026-10-17T11:44:41.326Z",
+    "evidence_max_age_seconds": 2592000
+  },
+  "consequence": {
+    "if_met": "The work is accepted as done under this standard.",
+    "if_not_met": "The work is not accepted on this record; the refusals and the gaps are named.",
+    "not_a_promise": true
+  },
+  "claim_contract_digest": null,
+  "enforcement": {
+    "compiler": "legate-standard-compiler.v1",
+    "policy_format": "cedar",
+    "construction": "acta-policy-digest-v1",
+    "file_name": "standard.cedar",
+    "policy": "// Compiled by legate-standard-compiler.v1 from the signed standard's structured requirements.\n// The standard carries this file's digest (acta-policy-digest-v1). Edit the standard, not this file.\n// Allowed tools: monid_discover, monid_inspect, monid_run. The name must match exactly. The gate does not read the tool's input.\n// Network, model route, attempts, time, and the task set are not visible here; the environment enforces the first two and the manifest carries the rest.\n\npermit (\n  principal,\n  action == Action::\"MCP::Tool::call\",\n  resource\n) when {\n  resource in [Tool::\"monid_discover\", Tool::\"monid_inspect\", Tool::\"monid_run\"]\n};\n\nforbid (\n  principal,\n  action == Action::\"MCP::Tool::call\",\n  resource\n) unless {\n  resource in [Tool::\"monid_discover\", Tool::\"monid_inspect\", Tool::\"monid_run\"]\n};\n",
+    "policy_digest": "sha256:a2e3a98fd751237bb71e8c38c9d18a8c040784d2f2e8db2d1243f07be633395b",
+    "action_model": "mcp",
+    "tool": "monid_discover, monid_inspect, monid_run",
+    "gate_enforced": [
+      "run_tools",
+      "limit_amount",
+      "limit_currency"
+    ],
+    "not_gate_enforced": [
+      "run_egress",
+      "run_model_route",
+      "run_attempts",
+      "run_time_limit",
+      "run_dataset",
+      "run_harness",
+      "human_approval",
+      "environment",
+      "coverage",
+      "effect",
+      "anchoring",
+      "disclosure",
+      "payment_controls"
+    ]
+  },
+  "issued_at": "2026-09-17T11:44:41.330Z",
+  "expires_at": "2027-09-17T11:44:41.326Z",
+  "nonce": "cd69b202635a00e0834f206d044f1ba9",
+  "digest": "23bc0c6635c3cc84bbb2744716ae6bee3490c8ccf27b000fa29ea39c0352b2ed",
+  "signature": {
+    "algorithm": "Ed25519",
+    "value": "efc3d63f40a2d1fec942e58288522ea3bfeeb2997a32dbbe1fd3fc0caae5076db319d6ba748d8c001c99da6a4bb8295a2886b9875c133518a139bf04b730340c"
+  }
+}

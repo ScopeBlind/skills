@@ -11,6 +11,7 @@ Cursor, OpenCode, Gemini CLI, and the other agents that read `SKILL.md`.
 | [`put-a-standard-in-force`](skills/put-a-standard-in-force/) | Write the rules for an agent in plain English, sign them, and run any MCP server or Claude Code session behind the gate. | `npx skills add ScopeBlind/skills -s put-a-standard-in-force` |
 | [`request-client-review`](skills/request-client-review/) | Turn a real pull request into a client review: brief, criteria, exact approvals, receiver-applied change, accepted result. | `npx skills add ScopeBlind/skills -s request-client-review` |
 | [`check-a-record`](skills/check-a-record/) | Check a record someone sent you, in the browser or on the command line, without uploading it. | `npx skills add ScopeBlind/skills -s check-a-record` |
+| [`shared-work-with-your-agent`](skills/shared-work-with-your-agent/) | Let a personal agent (Meta Muse, Claude Code, Codex, any MCP client) prepare shared work for two people to review, read who still has to decide, propose revisions, and retrieve the signed result; it never approves or applies. | `npx skills add ScopeBlind/skills -s shared-work-with-your-agent` |
 
 ```bash
 npx skills add ScopeBlind/skills --list

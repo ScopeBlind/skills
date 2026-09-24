@@ -58,11 +58,37 @@ def _real_value(value):
     return True
 
 
+# For detection only: a private key counts when a whole PEM block is present (header, a body of key material, footer),
+# not when code merely mentions the header, and credentials in a URL count unless they are an obvious placeholder.
+_PEM_BLOCK = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----\s*(?:\\n|\s)*[A-Za-z0-9+/=\s\\n]{64,}?-----END [A-Z ]*PRIVATE KEY-----")
+_URL_CREDENTIALS = re.compile(r"://([^/\s:@'\"]+):([^/\s@'\"]{3,})@([^/\s'\"?#]*)")
+_PLACEHOLDER_HOST = re.compile(r"(?i)(?:^|\.)(?:example\.(?:com|org|net)|invalid|test|localhost)(?::\d+)?$")
+_PLACEHOLDER_PASS = re.compile(r"(?i)^(?:pass(?:word)?|pw|pwd|secret|x+|\*+|changeme|test|dummy|p|u)$")
+
+
+def _real_url_credentials(text):
+    for m in _URL_CREDENTIALS.finditer(text):
+        user, password, host = m.groups()
+        if _PLACEHOLDER_PASS.match(password) or _PLACEHOLDER_HOST.search(host) or password.startswith(("$", "${")):
+            continue
+        return True
+    return False
+
+
 def find_secrets(text):
     """Return the labels of literal secrets in `text` (empty list if none). References like $TOKEN do not count."""
     if not isinstance(text, str) or not text:
         return []
-    found = [label for label, rx in _SECRET_FORMATS if rx.search(text)]
+    found = []
+    for label, rx in _SECRET_FORMATS:
+        if label == "private key":
+            if _PEM_BLOCK.search(text):
+                found.append(label)
+        elif label == "password in url":
+            if _real_url_credentials(text):
+                found.append(label)
+        elif rx.search(text):
+            found.append(label)
     from .classify import strip_heredocs
     command = strip_heredocs(text)
     if any(_real_value(m.group(2)) for m in _ENV_SECRET.finditer(command)):

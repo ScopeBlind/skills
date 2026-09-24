@@ -82,6 +82,13 @@ class RedactTest(unittest.TestCase):
         self.assertEqual(redact.find_secrets("API_TOKEN=changeme x"), [])
         self.assertEqual(redact.find_secrets("python3 - <<EOF\nsecret = 'abcdefghijk'\nEOF"), [])
         self.assertEqual(redact.find_secrets("MAX_TOKENS=100000000 run"), [])
+        # Code that mentions a PEM header, and placeholder credentials in test URLs, are not secrets.
+        self.assertEqual(redact.find_secrets("node -e \"if (!pem.startsWith('-----BEGIN PRIVATE KEY-----')) throw 1\""), [])
+        self.assertEqual(redact.find_secrets("assert.throws(() => opts(['--base', 'https://user:pass@example.com']))"), [])
+        self.assertEqual(redact.find_secrets("curl https://me:hunter22@localhost:8787/x"), [])
+        body = "A" * 64 + "\n" + "B" * 64
+        self.assertEqual(redact.find_secrets("cat > k.pem <<EOF\n-----BEGIN PRIVATE KEY-----\n%s\n-----END PRIVATE KEY-----\nEOF" % body), ["private key"])
+        self.assertEqual(redact.find_secrets("git clone https://deploy:gH7kQz91xLm@git.internal.corp/app.git"), ["password in url"])
 
 
 class SourcesTest(unittest.TestCase):

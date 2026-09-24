@@ -1,0 +1,7 @@
+{"timestamp": "2026-09-21T12:00:00Z", "type": "session_meta", "payload": {"id": "c-new", "cwd": "file:///work/web%20app", "forked_from_id": null}}
+{"timestamp": "2026-09-21T12:00:01Z", "type": "response_item", "payload": {"type": "function_call", "name": "exec_command", "call_id": "dup", "arguments": "{\"cmd\": \"npm run build\"}"}}
+{"timestamp": "2026-09-21T12:00:10Z", "type": "event_msg", "payload": {"type": "item_completed", "item": {"type": "CommandExecution", "id": "x1", "command": ["/bin/zsh", "-lc", "npm run build"], "cwd": "/work/web app", "status": "completed", "exit_code": 0, "duration": {"secs": 12, "nanos": 0}}}}
+{"timestamp": "2026-09-21T12:01:00Z", "type": "event_msg", "payload": {"type": "item_completed", "item": {"type": "FileChange", "id": "x2", "changes": {"/work/web app/a.ts": {"type": "update"}}, "status": "completed"}}}
+{"timestamp": "2026-09-21T12:02:00Z", "type": "event_msg", "payload": {"type": "item_completed", "item": {"type": "McpToolCall", "id": "x3", "server": "github", "tool": "create_pr", "status": "failed", "duration": {"secs": 1, "nanos": 500000000}}}}
+{"timestamp": "2026-09-21T12:03:00Z", "type": "event_msg", "payload": {"type": "item_completed", "item": {"type": "Reasoning", "id": "r1", "summary_text": "thinking"}}}
+{"timestamp": "2026-09-21T12:04:00Z", "type": "event_msg", "payload": {"type": "item_completed", "item": {"type": "CommandExecution", "id": "x4", "command": ["/bin/zsh", "-lc", "vercel deploy --prod"], "cwd": "/work/web app", "status": "failed", "exit_code": 1, "duration": {"secs": 5, "nanos": 0}}}}

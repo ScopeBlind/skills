@@ -131,6 +131,8 @@ Say what will happen before asking:
 - Codex cannot ask. A hold refuses the call and tells the agent to ask the person, who approves from their own
   terminal with the command the refusal shows (`replay.py approve <rule> --minutes 30 --session <id>`). The agent
   cannot run that approval itself.
+- When a refusal asks for something that cannot be done here (tests in a repository that has none, say), the
+  person can let that one go ahead from their own terminal with the command the refusal shows.
 - `require_after` and `unsupported` rules are never enforced live; the next replay reports them.
 
 Show the exact change first, then install. `--agent both` covers Claude Code and Codex, and `--scope project` installs

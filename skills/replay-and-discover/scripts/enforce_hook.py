@@ -368,6 +368,10 @@ def run(event, rules_path, log_path, agent="claude-code", require_live=False):
                       "they agree, they can approve from their own terminal: python3 \"%s\" approve %s --minutes %d "
                       "--session %s  Then retry." % (reason, REPLAY, rule_id, span, ev["session"]))
             decision = "deny"
+        elif decision == "deny" and rule and rule.get("type") == "require_before":
+            reason += (" If that cannot be done here (a repository with no tests, say), stop and ask the person. If "
+                       "they agree, they can approve it from their own terminal: python3 \"%s\" approve %s --minutes 30 "
+                       "--session %s" % (REPLAY, rule_id, ev["session"]))
         if decision != "deny":
             with _lock():
                 counts_all = _read_json(counts_path, {})

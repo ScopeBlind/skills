@@ -117,6 +117,16 @@ class RequirementTest(unittest.TestCase):
         late = act("d3", "npx wrangler pages deploy dist", at=3 * 3600)
         self.assertEqual(self.decide(late, [first], asked=asked)[0], "ask")
 
+    def test_a_terminal_approval_lets_a_requirement_go_ahead(self):
+        push = act("p", "git push origin docs-only", at=60)
+        self.assertEqual(self.decide(push)[0], "deny")
+        grant = {"id": "g1", "rule": "tests-before-push", "session": "s", "at": 1000.0, "until": 2000.0}
+        d = self.decide(push, grants=[grant])
+        self.assertIsNone(d[0])
+        self.assertEqual(d[3].get("covered_by"), "grant:g1")
+        self.assertEqual(self.decide(push, grants=[dict(grant, session="other")])[0], "deny")
+        self.assertEqual(self.decide(push, grants=[dict(grant, until=1030.0)])[0], "deny")
+
     def test_block_and_limit_messages(self):
         d = self.decide(act("f", "git push --force origin main"))
         self.assertEqual(d[0], "deny")
@@ -221,6 +231,12 @@ class HookEndToEndTest(unittest.TestCase):
         self.assertIn("result is unknown", self.hook("t5", "git push origin feature")[1])
         self.run_test("t6", "npm test 2>&1 | tail -5")
         self.assertEqual(self.hook("t7", "git push origin feature")[0], None)
+
+    def test_a_refusal_says_how_the_person_can_let_it_go_ahead(self):
+        decision, reason = self.hook("n1", "git push origin docs-only")
+        self.assertEqual(decision, "deny")
+        self.assertIn("did not run", reason)
+        self.assertIn("approve tests-before-push --minutes 30 --session s1", reason)
 
     def test_same_command_and_approvals(self):
         empty = os.path.join(self.tmp, "empty.jsonl")

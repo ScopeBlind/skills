@@ -23,7 +23,8 @@ Types:
   command joined so that its failure stops the action. `passed` (default true): it succeeded. `fresh`: it saw the
   final version (live, compared by content; in replay, by the edits and file-changing commands in between).
   `if_missing`: "fix" (default: refuse and tell the agent exactly what to run first), "hold" (ask a person) or
-  "block". `ignore`: file patterns (such as "dist/**") that do not count as changes.
+  "block". `ignore`: file patterns (such as "dist/**") that do not count as changes. A standing approval from the
+  person's terminal (`replay.py approve RULE`) lets it go ahead anyway, as it does for a hold.
 - require_after: at least one step in `requires` follows within `within_minutes` (default 30). Rehearsal reports
   misses; a live hook cannot prevent something that has not happened yet, so it is never enforced live.
 - limit: at most `max` matching actions per `per` ("session" or "day"); beyond that, refused.
@@ -600,7 +601,13 @@ def decide(doc, action, prior, day_counts=None, fingerprint=None, asked=None, gr
                         _join([gerund(s) for s in steps]) if steps else "the rule's other matching calls", span)
         elif t == "require_before":
             status, detail, infos = check_before(r, prior, action, fingerprint)
-            if status != "ok":
+            # A standing approval from the person's terminal lets it go ahead anyway, for when the requirement
+            # cannot be met here (a repository with no tests, say). The agent cannot give one itself: the hook
+            # guards `replay.py approve`.
+            g = active_grant(r, action, grants) if status != "ok" else None
+            if g:
+                info = {"covered_by": "grant:%s" % g.get("id"), "missing": infos}
+            elif status != "ok":
                 mode = r.get("if_missing", "fix")
                 info = {"missing": infos}
                 if mode == "hold":
@@ -662,7 +669,7 @@ def readback(doc):
                 " and passed" if r.get("passed", True) else "",
                 " on the final version (compared by file content when live)" if r.get("fresh") else "", then)
         elif t == "require_after":
-            how = "Reported (never prevented) if no %s follows within %s minutes, %s." % (
+            how = "Reported (never prevented) unless the agent runs %s within the next %s minutes, %s." % (
                 " or ".join(noun(x) for x in r.get("requires") or []), r.get("within_minutes", 30), when)
         elif t == "limit":
             how = "Refused beyond %s per %s, %s." % (r.get("max"), r.get("per", "day"), when)

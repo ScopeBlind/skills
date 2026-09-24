@@ -391,6 +391,11 @@ def cmd_install(args):
     py = sys.executable or "python3"
     for agent, path in targets:
         command = '"%s" "%s" --rules "%s"%s' % (py, HOOK, rules_path, " --agent codex" if agent == "codex" else "")
+        if agent == "claude-code" and os.name == "posix":
+            # Claude Code refuses a tool call when a PreToolUse hook exits with 2, and Python exits with 2 when its
+            # script is missing. Without this check, moving or removing the skill would refuse every tool call,
+            # including the ones needed to fix it. With it, the call goes ahead and `status` reports the missing script.
+            command = 'test -f "%s" && %s' % (HOOK, command)
         before = _read_json(path, None)
         after = json.loads(json.dumps(before or {}))
         if agent == "codex":
@@ -436,12 +441,15 @@ def cmd_uninstall(args):
 
 
 def _installed(path):
+    """(rules file, hook script) of our hook in a settings file, or None when it is not installed there."""
     data = _read_json(path, None) or {}
     for e in (data.get("hooks") or {}).get("PreToolUse") or []:
         for h in e.get("hooks") or []:
             if _ours(h):
-                m = re.search(r'--rules "([^"]+)"', h.get("command") or "")
-                return m.group(1) if m else "(rules found by folder)"
+                command = h.get("command") or ""
+                m = re.search(r'--rules "([^"]+)"', command)
+                script = re.search(r'"([^"]*enforce_hook\.py)"', command)
+                return (m.group(1) if m else "(rules found by folder)", script.group(1) if script else None)
     return None
 
 
@@ -462,7 +470,13 @@ def cmd_status(args):
                    ("Codex, this project", os.path.join(_git_root(project, common=True) or project, ".codex", "hooks.json"))]
     for name, path in places:
         found = _installed(path)
-        _say("%s: %s" % (name, "hook installed (rules: %s)" % short_path(found) if found else "not installed"))
+        if not found:
+            _say("%s: not installed" % name)
+        elif found[1] and not os.path.isfile(found[1]):
+            _say("%s: hook installed, but its script is missing (%s), so no rule applies. Install again from where "
+                 "the skill is now." % (name, short_path(found[1])))
+        else:
+            _say("%s: hook installed (rules: %s)" % (name, short_path(found[0])))
     grants = [g for g in _read_json(os.path.join(STATE, "grants.json"), []) if g.get("until", 0) > time.time()]
     for g in grants:
         _say("Standing approval %s: %s until %s%s" % (g.get("id"), g.get("rule"), datetime.fromtimestamp(g["until"]).strftime("%H:%M %d %b"),

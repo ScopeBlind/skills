@@ -105,6 +105,27 @@ class InstallTest(Sandbox):
         self.assertEqual(_load(settings)["hooks"]["PreToolUse"], [other])
         self.assertNotIn("PreToolUse", _load(os.path.join(repo, ".codex", "hooks.json"))["hooks"])
 
+    @unittest.skipUnless(os.name == "posix", "the check is a POSIX shell test")
+    def test_a_missing_hook_script_does_not_refuse_every_call(self):
+        repo = os.path.join(self.tmp, "repo")
+        subprocess.run(["git", "init", "-q", repo], check=True)
+        self.cwd = repo
+        os.makedirs(os.path.join(repo, ".claude"))
+        shutil.copyfile(STARTER, os.path.join(repo, ".claude", "scopeblind-rules.json"))
+        p = self.cli("install", "--scope", "project", "--agent", "claude-code")
+        self.assertEqual(p.returncode, 0, p.stderr)
+        settings = os.path.join(repo, ".claude", "settings.json")
+        data = _load(settings)
+        handler = data["hooks"]["PreToolUse"][0]["hooks"][0]
+        self.assertTrue(handler["command"].startswith('test -f "%s" && ' % replay.HOOK))
+        # The skill moves: Python would exit 2 ("can't open file"), which Claude Code reads as "refuse this call".
+        handler["command"] = handler["command"].replace(replay.HOOK, os.path.join(self.tmp, "moved", "enforce_hook.py"))
+        with open(settings, "w") as fh:
+            json.dump(data, fh)
+        run = subprocess.run(["sh", "-c", handler["command"]], input="{}", capture_output=True, text=True, timeout=30)
+        self.assertNotEqual(run.returncode, 2)
+        self.assertIn("its script is missing", self.cli("status").stdout)
+
 
 class CodexHoldTest(Sandbox):
     def test_codex_cannot_ask_so_the_person_approves_from_their_terminal(self):

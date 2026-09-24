@@ -2,68 +2,43 @@
   "version": 1,
   "name": "Starter: consequential actions wait for a person",
   "steps": {},
+  "budget": {"asks_per_week": 10},
   "rules": [
     {
       "id": "approve-releases",
       "type": "hold",
       "says": "A person approves before the agent deploys, publishes or merges a pull request.",
-      "match": {
-        "steps": [
-          "deploy",
-          "publish",
-          "pr_merge"
-        ]
-      }
+      "match": {"steps": ["deploy", "publish", "pr_merge"]},
+      "approval_minutes": 60
     },
     {
       "id": "tests-before-push",
       "type": "require_before",
       "says": "Tests pass on the final version before anything is pushed or a pull request is opened.",
-      "match": {
-        "steps": [
-          "push",
-          "pr_open"
-        ]
-      },
-      "requires": [
-        "test"
-      ],
+      "match": {"steps": ["push", "pr_open"]},
+      "requires": ["test"],
       "passed": true,
       "fresh": true,
-      "if_missing": "hold"
+      "if_missing": "fix"
     },
     {
       "id": "no-force-push-main",
       "type": "block",
       "says": "The agent never force-pushes to main or master.",
-      "match": {
-        "steps": [
-          "force_push"
-        ],
-        "command": "\\b(main|master)\\b"
-      }
+      "match": {"steps": ["force_push"], "command": "\\b(main|master)\\b"}
     },
     {
       "id": "no-literal-secrets",
       "type": "block",
       "says": "No command contains a literal secret such as a token or password.",
-      "match": {
-        "secrets": true
-      }
+      "match": {"secrets": true}
     },
     {
       "id": "check-after-deploy",
       "type": "require_after",
       "says": "The live result is checked within 30 minutes of every deploy.",
-      "match": {
-        "steps": [
-          "deploy"
-        ]
-      },
-      "requires": [
-        "web_request",
-        "test"
-      ],
+      "match": {"steps": ["deploy"]},
+      "requires": ["web_request", "test"],
       "within_minutes": 30
     },
     {
@@ -71,9 +46,7 @@
       "type": "hold",
       "says": "A person approves recursive deletes of absolute paths or the home folder, except temporary folders.",
       "match": {
-        "steps": [
-          "delete"
-        ],
+        "steps": ["delete"],
         "command": "(?:^|\\s)(?:\"|')?(?:~|\\$HOME|/(?!tmp/|private/tmp/|private/var/folders/|var/folders/))"
       }
     }

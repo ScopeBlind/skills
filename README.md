@@ -12,11 +12,19 @@ Cursor, OpenCode, Gemini CLI, and the other agents that read `SKILL.md`.
 | [`request-client-review`](skills/request-client-review/) | Turn a real pull request into a client review: brief, criteria, exact approvals, receiver-applied change, accepted result. | `npx skills add ScopeBlind/skills -s request-client-review` |
 | [`check-a-record`](skills/check-a-record/) | Check a record someone sent you, in the browser or on the command line, without uploading it. | `npx skills add ScopeBlind/skills -s check-a-record` |
 | [`shared-work-with-your-agent`](skills/shared-work-with-your-agent/) | Let a personal agent (Meta Muse, Claude Code, Codex, any MCP client) prepare shared work for two people to review, read who still has to decide, propose revisions, and retrieve the signed result; it never approves or applies. | `npx skills add ScopeBlind/skills -s shared-work-with-your-agent` |
-| [`replay-and-discover`](skills/replay-and-discover/) | Replay your coding agents' local history (Claude Code and Codex) to see how your work actually flows, what you can already show about it, and the definition of done you actually practise; then write rules, rehearse them against the same history, and enforce them with a Claude Code hook. Runs locally; nothing is sent anywhere. | `npx skills add ScopeBlind/skills -s replay-and-discover` |
+| [`replay-and-discover`](skills/replay-and-discover/) | Replay your coding agents' local history (Claude Code and Codex): how your work actually flows, your definition of done as practised, and whether each release shipped the version your tests ran on. Then write rules with the person, rehearse them against the same history, and enforce them with a hook for Claude Code or Codex that tells the agent what to fix and only asks you for real approvals. Runs locally. | `npx skills add ScopeBlind/skills -s replay-and-discover` |
 
 ```bash
 npx skills add ScopeBlind/skills --list
 npx skills add ScopeBlind/skills -s governed-monid -a claude-code
+```
+
+Or install every skill as one Claude Code plugin, which also brings the replay-and-discover hooks. They stay idle
+until a rules file says `"live": true`, and `/plugin disable scopeblind@scopeblind` turns them off:
+
+```
+/plugin marketplace add ScopeBlind/skills
+/plugin install scopeblind@scopeblind
 ```
 
 Every skill is standalone: clone the repository and read its `SKILL.md`, or run

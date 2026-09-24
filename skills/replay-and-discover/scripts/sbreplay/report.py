@@ -6,12 +6,25 @@ import os
 from .classify import gerund, label, lc, noun
 
 
+def _n(n, word, plural=None):
+    """'1 time', '3 times', with thousands separators."""
+    return "%s %s" % (_num(n), word if n == 1 else (plural or word + "s"))
+
+
 def pct(a, b):
     return "%d%%" % round(100.0 * a / b) if b else "n/a"
 
 
 def _num(n):
     return "{:,}".format(n) if isinstance(n, int) else str(n)
+
+
+def span_pct(lo, hi, n):
+    """'44%' or '14% to 44%' when the log cannot settle every case."""
+    if not n:
+        return "n/a"
+    hi = lo if hi is None else hi
+    return pct(lo, n) if pct(lo, n) == pct(hi, n) else "%s to %s" % (pct(lo, n), pct(hi, n))
 
 
 def _span(minutes):
@@ -46,11 +59,26 @@ def compare(current, previous):
     return out
 
 
+def headline_markdown(f, days):
+    """The first screen: one sentence, up to three findings, one decision."""
+    h = f.get("headline") or {}
+    L = ["# Replay: the last %d days of agent work" % days, ""]
+    if h.get("sentence"):
+        L.append("**%s**" % h["sentence"])
+        L.append("")
+    for item in h.get("findings") or []:
+        L.append("- " + item)
+    if h.get("decision"):
+        d = h["decision"]
+        L.append("")
+        L.append("Decision to make: %s (%s)" % (d["question"], d["evidence"]))
+    return L
+
+
 def markdown(f, days, rehearsal=None, github=None, changes=None, files=None):
     o = f["overview"]
-    L = []
+    L = headline_markdown(f, days)
     agents = ", ".join("%s: %s actions in %s sessions" % (k, _num(v["actions"]), _num(v["sessions"])) for k, v in o["by_agent"].items())
-    L.append("# Replay: the last %d days of agent work" % days)
     L.append("")
     L.append("Scanned %s actions (%s), %s to %s, %d active days. Top projects: %s." % (
         _num(o["actions"]), agents or "none found", o["window"]["first_action"], o["window"]["last_action"],
@@ -68,10 +96,12 @@ def markdown(f, days, rehearsal=None, github=None, changes=None, files=None):
         L.append("|---|---|---|---|---|---|")
         for step, e in ev.items():
             after = "n/a" if e["checked_after"] is None else "%s (%s)" % (_num(e["checked_after"]), pct(e["checked_after"], e["n"]))
-            L.append("| %s | %s | %s (%s) | %s (%s) | %s | %s |" % (
+            L.append("| %s | %s | %s (%s) | %s | %s | %s |" % (
                 e["label"], _num(e["n"]), _num(e["passing_test_before"]), pct(e["passing_test_before"], e["n"]),
-                _num(e["tested_final_version"]), pct(e["tested_final_version"], e["n"]), _num(e["ci_checked_before"]), after))
+                span_pct(e["tested_final_version"], e.get("tested_final_version_max"), e["n"]),
+                _num(e["ci_checked_before"]), after))
         L.append("Strength: self-reported. Good for improving your own work; to prove it to someone else, use evidence the agent does not control.")
+        L.append("\"Final version tested\" is a range when the log cannot settle every case: a test whose output was piped (so its result was hidden), or a command that may have changed files after it.")
     else:
         L.append("No pushes, merges, deploys or publishes in this window.")
     if github and github.get("available"):
@@ -104,15 +134,21 @@ def markdown(f, days, rehearsal=None, github=None, changes=None, files=None):
         shown = True
         checks = ", ".join("%s %s" % (noun(c), pct(v["present"], d["n"])) for c, v in d["checks_before"].items()
                            if v["share"] >= 0.05) or "no checks"
-        line = "- Before %s (%s times): %s. Final version tested %s." % (gerund(step), _num(d["n"]), checks,
-                                                                        pct(d["tested_final_version"], d["n"]))
+        line = "- Before %s (%s): %s. Final version tested %s." % (
+            gerund(step), _n(d["n"], "time"), checks, span_pct(d["tested_final_version"], d.get("tested_final_version_max"), d["n"]))
+        if d.get("changed_after_test"):
+            line += " Files changed after the last passing test %s times." % _num(d["changed_after_test"])
         if d["implicit_done"]:
             line += " Usual pattern: %s; %s went ahead without it." % (" + ".join(noun(c) for c in d["implicit_done"]), _num(d["exceptions"]))
+        why = sorted(((k, v) for k, v in (d.get("why_not") or {}).items() if k not in ("ok", "same_command")), key=lambda kv: -kv[1])
+        if why:
+            from .discover import REASON_WORDS
+            line += " Why not: " + "; ".join("%s (%s)" % (REASON_WORDS.get(k, k), _num(v)) for k, v in why[:4]) + "."
         L.append(line)
     for step, a in f["after_checks"].items():
         shown = True
-        L.append("- After %s (%s times): checked within %d minutes %s (%s)." % (
-            gerund(step), _num(a["n"]), a["within_minutes"], pct(a["checked_after"], a["n"]), " or ".join(lc(c) for c in a["checked_with"])))
+        L.append("- After %s (%s): checked within %d minutes %s (%s)." % (
+            gerund(step), _n(a["n"], "time"), a["within_minutes"], pct(a["checked_after"], a["n"]), " or ".join(lc(c) for c in a["checked_with"])))
     if not shown:
         L.append("Not enough finished work to infer a definition of done.")
     L.append("")
@@ -128,8 +164,8 @@ def markdown(f, days, rehearsal=None, github=None, changes=None, files=None):
     s = f["secrets"]
     if s["commands"]:
         L.append("")
-        L.append("Secrets: %s commands in %s sessions carried a literal secret (%s). Values are never shown." % (
-            _num(s["commands"]), _num(s["sessions"]), ", ".join("%s %d" % (k, v) for k, v in s["kinds"].items())))
+        L.append("Secrets: %s in %s carried a literal secret (%s). Values are never shown." % (
+            _n(s["commands"], "command"), _n(s["sessions"], "session"), ", ".join("%s %d" % (k, v) for k, v in s["kinds"].items())))
     fr, rw = f["friction"], f["rework"]
     L.append("")
     L.append("## 5. Friction and rework")
@@ -143,7 +179,17 @@ def markdown(f, days, rehearsal=None, github=None, changes=None, files=None):
         for a in f["automation"][:3]:
             L.append("  - %s (%s times, %s sessions)" % (" -> ".join(a["sequence"]), _num(a["times"]), _num(a["sessions"])))
     L.append("")
-    L.append("## 6. Suggestions")
+    L.append("## 6. Commands I could not place")
+    if f.get("unplaced"):
+        L.append("These recur but match no known step. Your own release or check scripts are often here; label them so the rules can see them (`replay.py label`).")
+        for u in f["unplaced"][:10]:
+            L.append("- `%s`: %s times in %s sessions (%s)%s. Example: `%s`" % (
+                u["shape"], _num(u["times"]), _num(u["sessions"]), ", ".join(u["projects"]),
+                "; sounds consequential" if u["sounds_consequential"] else "", u["example"]))
+    else:
+        L.append("Nothing recurring that the patterns could not place.")
+    L.append("")
+    L.append("## 7. Suggestions")
     if f["suggestions"]:
         for i, sg in enumerate(f["suggestions"], 1):
             rid = " Draft rule: `%s`." % sg["rule"]["id"] if sg.get("rule") else ""
@@ -152,13 +198,24 @@ def markdown(f, days, rehearsal=None, github=None, changes=None, files=None):
         L.append("Nothing stands out yet.")
     if rehearsal:
         L.append("")
-        L.append("## 7. Rehearsal: %s" % (rehearsal.get("name") or "rules"))
-        L.append("| Rule | Matched | Would hold | Would refuse | Missed | Can't tell | Holds a week | Live |")
-        L.append("|---|---|---|---|---|---|---|---|")
+        L.append("## 8. Rehearsal: %s" % (rehearsal.get("name") or "rules"))
+        L.append("| Rule | Matched | Asks a person | Tells the agent to fix | Refuses | Missed | Can't tell | Asks a week | Live |")
+        L.append("|---|---|---|---|---|---|---|---|---|")
         for r in rehearsal["rules"]:
-            L.append("| %s: %s | %s | %s | %s | %s | %s | %s | %s |" % (
-                r["id"], r["says"], _num(r["matched"]), _num(r["would_hold"]), _num(r["would_block"]), _num(r["violations"]),
-                _num(r["cant_tell"]), r.get("holds_per_week", "n/a"), "yes" if r["enforced_live"] else "report only"))
+            asks = _num(r["would_hold"])
+            if r.get("would_hold_each_call", r["would_hold"]) != r["would_hold"]:
+                asks += " (%s without approval windows)" % _num(r["would_hold_each_call"])
+            L.append("| %s: %s | %s | %s | %s | %s | %s | %s | %s | %s |" % (
+                r["id"], r["says"], _num(r["matched"]), asks, _num(r.get("would_fix", 0)), _num(r["would_block"]),
+                _num(r["violations"]), _num(r["cant_tell"]), r.get("holds_per_week", "n/a"),
+                "yes" if r["enforced_live"] else "report only"))
+        b = rehearsal.get("budget")
+        if b:
+            L.append("")
+            L.append("Interruptions: about %s asks a week against a budget of %s%s; the agent would be told to fix something about %s times a week." % (
+                b["asks_per_week"], b["limit"], " (over)" if b["over"] else "", b["fixes_per_week"]))
+            for adv in b.get("advice") or []:
+                L.append("- To ask less: " + adv)
         for u in rehearsal.get("unsupported") or []:
             L.append("- Not checked (no deterministic check covers it): %s" % u["says"])
         ex = [(r["id"], e) for r in rehearsal["rules"] for e in r["examples"][:2]]
@@ -192,8 +249,9 @@ h2{font-size:18px;margin:36px 0 12px}p.dim,.dim{color:var(--dim)}.note{font-size
 .flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 8px}.chip{padding:3px 10px;border-radius:999px;
 background:var(--accent-soft);color:var(--accent);font-size:13px;font-weight:600}.chip.finish{background:var(--good-soft);color:var(--good)}
 .chip.risky{background:var(--warn-soft);color:var(--warn)}.arrow{color:var(--dim)}
-.bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden}.bar i{display:block;height:100%;background:var(--accent)}
-.rows{display:grid;grid-template-columns:minmax(120px,170px) 1fr 44px;gap:6px 12px;align-items:center;margin:10px 0 6px;font-size:14px}
+.bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden;display:flex}.bar i{display:block;height:100%;background:var(--accent)}
+.bar i.maybe{background:var(--accent);opacity:.35}
+.rows{display:grid;grid-template-columns:minmax(120px,170px) 1fr 92px;gap:6px 12px;align-items:center;margin:10px 0 6px;font-size:14px}
 .rows span:last-child{text-align:right;font-variant-numeric:tabular-nums}.rows .final{font-weight:600}
 table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
 th{color:var(--dim);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}.wrap{overflow-x:auto}
@@ -201,6 +259,9 @@ th{color:var(--dim);font-weight:600;font-size:12px;text-transform:uppercase;lett
 .pill.block{background:var(--bad-soft);color:var(--bad)}.pill.ok{background:var(--good-soft);color:var(--good)}
 code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;background:var(--accent-soft);padding:1px 5px;border-radius:5px;word-break:break-all}
 ol li{margin:6px 0}
+.lead{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:18px 0 8px}
+.lead .big{font-size:19px;line-height:1.45;font-weight:600;margin:0 0 8px;text-wrap:balance}.lead ul{margin:6px 0 0;padding-left:20px}
+.lead .decide{margin:12px 0 0;padding-top:12px;border-top:1px solid var(--line)}
 """
 
 
@@ -220,6 +281,15 @@ def html_report(f, days, rehearsal=None, github=None, changes=None):
     P.append("<h1>How your agents actually work</h1>")
     P.append('<p class="dim">The last %d days, %s to %s. Read from the agents\' own logs on this machine; nothing was sent anywhere.</p>' % (
         days, e(o["window"]["first_action"]), e(o["window"]["last_action"])))
+    h = f.get("headline") or {}
+    if h.get("sentence"):
+        P.append('<section class="lead"><p class="big">%s</p>' % e(h["sentence"]))
+        if h.get("findings"):
+            P.append("<ul>%s</ul>" % "".join("<li>%s</li>" % e(x) for x in h["findings"]))
+        if h.get("decision"):
+            P.append('<p class="decide"><b>Decision to make:</b> %s <span class="dim">(%s)</span></p>' % (
+                e(h["decision"]["question"]), e(h["decision"]["evidence"])))
+        P.append("</section>")
     P.append('<div class="stats">')
     P.append('<div class="stat"><b>%s</b>actions</div>' % _num(o["actions"]))
     for k, v in o["by_agent"].items():
@@ -234,7 +304,8 @@ def html_report(f, days, rehearsal=None, github=None, changes=None):
         for step, ev in f["evidence"].items():
             after = "n/a" if ev["checked_after"] is None else pct(ev["checked_after"], ev["n"])
             P.append("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (
-                e(ev["label"]), _num(ev["n"]), pct(ev["passing_test_before"], ev["n"]), pct(ev["tested_final_version"], ev["n"]), after))
+                e(ev["label"]), _num(ev["n"]), pct(ev["passing_test_before"], ev["n"]),
+                span_pct(ev["tested_final_version"], ev.get("tested_final_version_max"), ev["n"]), after))
         P.append('</table></div><p class="note">Self-reported by the agent. To prove it to someone else, use evidence the agent does not control.</p>')
     if github and github.get("available"):
         for r in github["repos"]:
@@ -259,8 +330,9 @@ def html_report(f, days, rehearsal=None, github=None, changes=None):
                 continue
             P.append('<span class="dim">%s</span><div class="bar"><i style="width:%s"></i></div><span>%s</span>' % (
                 e(label(c)), pct(v["present"], d["n"]), pct(v["present"], d["n"])))
-        P.append('<span class="final">Final version tested</span><div class="bar"><i style="width:%s"></i></div><span class="final">%s</span></div>' % (
-            pct(d["tested_final_version"], d["n"]), pct(d["tested_final_version"], d["n"])))
+        lo, hi = d["tested_final_version"], d.get("tested_final_version_max", d["tested_final_version"])
+        P.append('<span class="final">Final version tested</span><div class="bar"><i style="width:%s"></i><i class="maybe" style="width:%s"></i></div><span class="final">%s</span></div>' % (
+            pct(lo, d["n"]), pct(hi - lo, d["n"]), span_pct(lo, hi, d["n"])))
         if d["implicit_done"]:
             P.append("<div>Usual pattern: <b>%s</b>; %s went ahead without it.</div>" % (
                 e(" + ".join(noun(c) for c in d["implicit_done"])), _num(d["exceptions"])))
@@ -273,6 +345,13 @@ def html_report(f, days, rehearsal=None, github=None, changes=None):
         for k, r in sorted(f["risky"].items(), key=lambda kv: -kv[1]["attempts"]):
             P.append("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (
                 e(r["label"]), _num(r["attempts"]), _num(r["ran"]), _num(r["refused"]), _num(r["sessions"])))
+        P.append("</table></div>")
+    if f.get("unplaced"):
+        P.append('<h2>Commands I could not place</h2><p class="dim">They recur but match no known step. Label your own release and check scripts so the rules can see them.</p><div class="wrap"><table><tr><th>Command</th><th>Times</th><th>Sessions</th><th>Example</th></tr>')
+        for u in f["unplaced"][:10]:
+            P.append("<tr><td><code>%s</code>%s</td><td>%s</td><td>%s</td><td><code>%s</code></td></tr>" % (
+                e(u["shape"]), ' <span class="pill hold">release?</span>' if u["sounds_consequential"] else "",
+                _num(u["times"]), _num(u["sessions"]), e(u["example"])))
         P.append("</table></div>")
     if f["suggestions"]:
         P.append("<h2>Suggestions</h2><ol>")

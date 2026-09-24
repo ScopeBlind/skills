@@ -35,7 +35,7 @@ class ClassifyTest(unittest.TestCase):
         self.check("screen -dmS sb zsh -c '~/bin/deploy-run.sh > log 2>&1'", ["deploy"])
         self.check("cd app && npx wrangler pages deploy dist", ["deploy"])
         self.check('git -C "/path with space" push --force-with-lease', ["force_push"])
-        self.check("python3 - <<'EOF'\nnpm publish\nEOF", ["other_command"])
+        self.check("python3 - <<'EOF'\nnpm publish\nEOF", ["inline_script"])
         self.check("npm run -s test:unit", ["test"])
         self.check("tsc --noEmit -p .", ["typecheck"])
         self.check("npm run build:prod", ["build"])
@@ -44,17 +44,17 @@ class ClassifyTest(unittest.TestCase):
         self.check("sudo rm -rf /opt/x", ["permissions", "delete"])
         self.check('FOO=bar BAZ="a b" pytest -q', ["test"])
         self.check("curl -s https://example.com", ["web_request"])
-        self.check('echo "git push"', ["other_command"])
+        self.check('echo "git push"', ["inspect"])
         self.check("gh pr merge 12 --squash", ["pr_merge"])
-        self.check("wrangler pages deployment list --project-name x", ["other_command"])
+        self.check("wrangler pages deployment list --project-name x", ["inspect"])
         self.check("git push -n origin main", ["other_command"])
-        self.check("node --import tsx --test a.test.ts 2>&1 | tail -5", ["test", "other_command"])
+        self.check("node --import tsx --test a.test.ts 2>&1 | tail -5", ["test", "inspect"])
 
     def test_tools(self):
         self.assertEqual(classify.tool_steps("Edit"), ["edit"])
         self.assertEqual(classify.tool_steps("mcp__github__create_pr"), ["mcp"])
         self.assertEqual(classify.tool_steps("Read"), ["read"])
-        self.assertEqual(classify.tool_steps("Bash", "ls"), ["other_command"])
+        self.assertEqual(classify.tool_steps("Bash", "ls"), ["inspect"])
 
     def test_extra_steps(self):
         extra = classify.compile_extra({"live_check": ["curl .*example\\.com"]})
@@ -76,7 +76,7 @@ class RedactTest(unittest.TestCase):
         self.assertTrue(redact.redact("x" * 300).endswith("…"))
 
     def test_find_secrets(self):
-        self.assertTrue(redact.find_secrets("WITNESS_SECRET=abc123def456ghi node a.js"))
+        self.assertTrue(redact.find_secrets("DEPLOY_SECRET=abc123def456ghi node a.js"))
         self.assertTrue(redact.find_secrets("npm config set //registry/:_authToken=npm_" + "b" * 36))
         self.assertEqual(redact.find_secrets("TOKEN=$X node a"), [])
         self.assertEqual(redact.find_secrets("API_TOKEN=changeme x"), [])
@@ -186,7 +186,7 @@ class RulesTest(unittest.TestCase):
         edit = Action(id="b", tool="Edit", steps=["edit"], outcome="ok", **dict(base, ts=950.0))
         push = Action(id="c", tool="Bash", command="git push origin x", steps=["push"], **base)
         self.assertEqual(rules.decide(self.doc, push, [test_ok])[0], None)
-        self.assertEqual(rules.decide(self.doc, push, [test_ok, edit])[0], "ask")
+        self.assertEqual(rules.decide(self.doc, push, [test_ok, edit])[0], "deny")  # the agent is told to re-run the tests
         force = Action(id="d", tool="Bash", command="git push --force origin main", steps=["force_push"], **base)
         self.assertEqual(rules.decide(self.doc, force, [])[0], "deny")
         deploy = Action(id="e", tool="Bash", command="vercel --prod", steps=["deploy"], **base)
@@ -241,12 +241,12 @@ class CliTest(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         try:
             out = os.path.join(tmp, "out")
-            p = subprocess.run([sys.executable, os.path.join(SCRIPTS, "replay.py"), "scan", "--since", "2020-01-01",
+            p = subprocess.run([sys.executable, os.path.join(SCRIPTS, "replay.py"), "scan", "--since", "2020-01-01", "--full",
                                 "--claude-dir", CLAUDE, "--codex-dir", CODEX, "--rules", STARTER, "--out", out],
                                capture_output=True, text=True, timeout=120)
             self.assertEqual(p.returncode, 0, p.stderr)
             self.assertIn("## 1. What you can already show", p.stdout)
-            self.assertIn("## 7. Rehearsal", p.stdout)
+            self.assertIn("## 8. Rehearsal", p.stdout)
             self.assertNotIn("abcd1234efgh5678", p.stdout)
             for name in ("findings.json", "report.md", "report.html"):
                 path = os.path.join(out, name)

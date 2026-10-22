@@ -1,0 +1,12 @@
+{
+  "name": "scopeblind",
+  "owner": {"name": "ScopeBlind", "url": "https://scopeblind.com"},
+  "plugins": [
+    {
+      "name": "scopeblind",
+      "source": "./",
+      "description": "ScopeBlind skills for coding agents: replay and discover, put a standard in force, request client review, check a record, shared work with your agent, and governed Monid.",
+      "version": "0.2.0"
+    }
+  ]
+}

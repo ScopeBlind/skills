@@ -1,0 +1,5 @@
+{"timestamp": "2026-09-21T09:00:00Z", "type": "session_meta", "payload": {"id": "c-old", "cwd": "/work/svc"}}
+{"timestamp": "2026-09-21T09:00:05Z", "type": "response_item", "payload": {"type": "function_call", "name": "exec_command", "call_id": "call_1", "arguments": "{\"cmd\": \"pytest -q\", \"workdir\": \"/work/svc\"}"}}
+{"timestamp": "2026-09-21T09:00:09Z", "type": "response_item", "payload": {"type": "function_call_output", "call_id": "call_1", "output": "Chunk ID: a1\nWall time: 3.5 seconds\nProcess exited with code 0\nOutput:\n3 passed"}}
+{"timestamp": "2026-09-21T09:01:00Z", "type": "response_item", "payload": {"type": "function_call", "name": "exec_command", "call_id": "call_2", "arguments": "{\"cmd\": \"git push origin feature\"}"}}
+{"timestamp": "2026-09-21T09:01:02Z", "type": "response_item", "payload": {"type": "function_call_output", "call_id": "call_2", "output": "Chunk ID: a2\nWall time: 1.2 seconds\nProcess exited with code 0\nOutput:\n"}}

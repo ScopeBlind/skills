@@ -1,0 +1,11 @@
+{
+  "name": "scopeblind",
+  "version": "0.2.0",
+  "description": "Replay your coding agents' history to see how work really flows and what you can already show, turn what you want into rules they follow (checked by file content, with approvals that cover a task), and put a named person's approval on a page when someone else must rely on it.",
+  "author": {"name": "ScopeBlind", "url": "https://scopeblind.com"},
+  "homepage": "https://scopeblind.com",
+  "repository": "https://github.com/ScopeBlind/skills",
+  "license": "MIT",
+  "keywords": ["agents", "claude-code", "codex", "definition-of-done", "approvals", "governance"],
+  "hooks": "./hooks/hooks.json"
+}

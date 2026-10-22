@@ -5,3 +5,5 @@ protect-mcp.json
 keys/
 *-key.json
 *key-backup*.json
+__pycache__/
+*.pyc
